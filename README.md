@@ -17,7 +17,9 @@ python simulator/rf_channel_sim.py
 
 On Windows activate with `.venv\Scripts\activate`; use `python` instead of
 `python3` where appropriate. Manual mode also works without pyserial.
-Commands: `on`, `off`, `status`, `quit`. Each status prints one measurement.
+Commands: `on`, `off`, `status`, `reset`, `quit`. Each status prints one
+measurement plus a synthetic virtual-packet outcome and cumulative delivered /
+lost counters. `reset` clears those counters without changing TEST mode.
 Use `--seed 42` for repeatable synthetic values.
 
 ## ESP32 setup

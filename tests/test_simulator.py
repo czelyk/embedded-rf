@@ -24,6 +24,17 @@ class SimulatorTests(unittest.TestCase):
             self.assertFalse(channel.test_mode)
         self.assertIsNone(handle_command(channel, 'garbage'))
 
+    def test_virtual_receiver_counters_and_reset(self):
+        channel = RFChannelSimulator(random.Random(5))
+        for _ in range(3):
+            data = channel.measure()
+        self.assertEqual(data['packets_sent'], 3)
+        self.assertEqual(data['packets_received'] + data['packets_lost'], 3)
+        self.assertIn(data['virtual_packet'], ('received', 'lost'))
+        self.assertEqual(handle_command(channel, 'reset'), 'Virtual receiver counters reset')
+        self.assertEqual(channel.packets_sent, 0)
+        self.assertEqual(channel.packets_received, 0)
+
     def test_framing(self):
         decoder = LineDecoder()
         self.assertEqual(decoder.feed(b'STA'), [])
