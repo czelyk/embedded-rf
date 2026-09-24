@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.pio/
+build/
+*.bin
+*.elf
+*.map
+.DS_Store
+.idea/
+.vscode/
