@@ -5,17 +5,16 @@
 ## Architecture
 
 ```text
-ESP32 -- USB Serial --> Python controller / RF channel simulator
-                              |- NORMAL mode
-                              |- TEST mode
-                              `- synthetic RSSI, noise, packet success
+ESP32-C3 -- USB Serial / Wi-Fi TCP --> Python controller --> RF channel simulator
+    |                                      |                    `- SIMULATED RF values
+    `-------------- Wi-Fi UDP ------------> UDP telemetry receiver
 ```
 
 See [the architecture document](docs/architecture.md) for the data flow.
 
 ## Repository layout
 
-- `firmware/esp32_controller/` — Arduino USB-serial state controller
+- `firmware/esp32_controller/` — ESP32-C3 Serial/Wi-Fi/TCP/UDP state controller
 - `simulator/` — Python synthetic channel model and CLI
 - `tests/` — hardware-independent simulator tests
 - `docs/` — design documentation
@@ -67,6 +66,49 @@ The application can also send commands itself. This finite command sequence is u
 
 For a manual serial check, first ensure no terminal/monitor holds `/dev/ttyUSB0`, then run `pio device monitor --baud 115200` from the firmware directory. On reset it prints `ESP32_SIM_CONTROLLER:READY` and `MODE:NORMAL`; send each command followed by Enter. Exit the monitor before starting Python.
 
+## Wi-Fi, TCP, and UDP
+
+Copy `firmware/esp32_controller/include/wifi_config.example.h` to
+`wifi_config.h` in the same directory and enter your local SSID, password, and
+the Linux host/IP for telemetry. The real config file is ignored by Git. With no
+credentials configured, the firmware still builds and Serial still works; it
+prints `WIFI:CONFIG_REQUIRED`.
+
+After upload, Serial prints `WIFI:CONNECTING` and then `WIFI:CONNECTED IP:...`.
+The ESP32 runs a newline-delimited TCP control server on port `8765` by default:
+
+```bash
+.venv/bin/python -m simulator.main --host ESP32_IP --tcp-port 8765 \
+  --command STATUS --command ON --command STATUS --command OFF \
+  --count 8 --interval 0.2
+```
+
+TCP uses the same `ON`, `OFF`, and `STATUS` protocol as Serial. USB Serial stays
+available as a debug and fallback control channel. See [protocol details](docs/protocol.md).
+
+The ESP32 may send device-state-only UDP telemetry every five seconds. Receive it
+on the configured Linux host/port (default `8766`):
+
+```bash
+.venv/bin/python -m simulator.telemetry --bind 0.0.0.0 --port 8766
+```
+
+`DEVICE TELEMETRY` contains only device, mode, uptime, and sequence. It is never
+an RF measurement; RSSI/noise/packet-success remain Python-generated `SIMULATED` data.
+
+## Tests and troubleshooting
+
+```bash
+.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python -m compileall -q simulator tests
+cd firmware/esp32_controller && pio run
+```
+
+Use a USB data cable, verify the board's printed IP is reachable on the same
+network, and close any serial monitor before using the Python USB client. Wi-Fi
+is retried every ten seconds without blocking Serial/TCP processing. TCP accepts
+one client at a time; reconnect after a disconnect.
+
 ## Serial protocol
 
 UTF-8 text, 115200 baud, 8N1, newline-delimited:
@@ -89,4 +131,4 @@ SIMULATED mode=TEST RSSI=-75.1 dBm noise=-72.4 dBm packet_success=62.8%
 
 ## Limitations and roadmap
 
-These are bounded random values, not live readings. State resets on reboot; no GUI or logging exists. Safe future work can add configuration profiles, CSV logging, repeatable scenarios, visualisation, and serial reconnection. It must remain simulation-first and avoid RF disruption.
+These are bounded random values, not live readings. State resets on reboot; no GUI or logging exists. Safe future work can add configuration profiles, CSV logging, repeatable scenarios, visualisation, authenticated network control, and serial reconnection. It must remain simulation-first and avoid RF disruption.

@@ -3,6 +3,7 @@ import argparse
 import time
 from .channel import RFChannelSimulator
 from .controller import SerialController, apply_serial_line
+from .transports import TcpController
 
 def print_measurement(simulator: RFChannelSimulator) -> None:
     sample = simulator.measure()
@@ -11,6 +12,8 @@ def print_measurement(simulator: RFChannelSimulator) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Simulation-only RF monitor (no RF hardware control).")
     parser.add_argument("--port", help="ESP32 USB serial port, e.g. /dev/ttyUSB0 or COM3")
+    parser.add_argument("--host", help="ESP32 TCP host or IP address")
+    parser.add_argument("--tcp-port", type=int, default=8765, help="ESP32 TCP control port (default: 8765)")
     parser.add_argument("--interval", type=float, default=1.0, help="measurement interval in seconds")
     parser.add_argument("--manual", action="store_true", help="read ON, OFF, STATUS, or QUIT from the keyboard")
     parser.add_argument("--command", action="append", default=[], help="send ON, OFF, or STATUS after connecting (repeatable)")
@@ -18,12 +21,15 @@ def main() -> int:
     args = parser.parse_args()
     if args.interval <= 0: parser.error("--interval must be positive")
     if args.count is not None and args.count <= 0: parser.error("--count must be positive")
-    if not args.port and not args.manual: parser.error("choose --manual or provide --port")
+    if args.port and args.host: parser.error("choose either --port or --host")
+    if args.tcp_port <= 0 or args.tcp_port > 65535: parser.error("--tcp-port must be 1..65535")
+    if not args.port and not args.host and not args.manual: parser.error("choose --manual, --port, or --host")
     simulator, controller = RFChannelSimulator(), None
-    if args.port:
-        controller = SerialController(args.port)
+    if args.port or args.host:
+        controller = SerialController(args.port) if args.port else TcpController(args.host, args.tcp_port)
         try:
-            controller.connect(); print(f"Connected to {args.port}; awaiting ESP32 mode messages.")
+            endpoint = args.port or f"{args.host}:{args.tcp_port}"
+            controller.connect(); print(f"Connected to {endpoint}; awaiting ESP32 mode messages.")
             for command in args.command:
                 controller.send_command(command)
                 print(f"Sent ESP32 command: {command.strip().upper()}")
