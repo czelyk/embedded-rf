@@ -1,69 +1,72 @@
 # embedded-rf
 
-ESP32 USB Serial controller and a Python RF channel **simulator**. All RSSI,
-noise and packet-success values are synthetic; there is no RF transmission,
-jamming, radio configuration, or real receiver measurement.
+`embedded-rf` is a safe, simulation-only ESP32-controlled RF-channel training platform. It models RSSI, noise, and packet success in Python; it does **not** measure, transmit, jam, interfere with, or otherwise operate on real RF signals.
 
-## PC setup
+## Architecture
 
-Use Python 3.10+:
-
-```sh
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python simulator/rf_channel_sim.py
+```text
+ESP32 -- USB Serial --> Python controller / RF channel simulator
+                              |- NORMAL mode
+                              |- TEST mode
+                              `- synthetic RSSI, noise, packet success
 ```
 
-On Windows activate with `.venv\Scripts\activate`; use `python` instead of
-`python3` where appropriate. Manual mode also works without pyserial.
-Commands: `on`, `off`, `status`, `reset`, `quit`. Each status prints one
-measurement plus a synthetic virtual-packet outcome and cumulative delivered /
-lost counters. `reset` clears those counters without changing TEST mode.
-Use `--seed 42` for repeatable synthetic values.
+See [the architecture document](docs/architecture.md) for the data flow.
 
-## ESP32 setup
+## Repository layout
 
-The sketch targets a **classic ESP32 DevKit** with a USB-to-UART bridge.
-In Arduino IDE, install Espressif's ESP32 board package, select the actual board
-(e.g. ESP32 Dev Module) and USB port, then open and upload
-`firmware/esp32_controller/esp32_controller.ino`.
+- `firmware/esp32_controller/` — Arduino USB-serial state controller
+- `simulator/` — Python synthetic channel model and CLI
+- `tests/` — hardware-independent simulator tests
+- `docs/` — design documentation
 
-With the board powered off, connect two normally open pushbuttons:
+## Requirements
 
-| Button | Connection | Action |
+- Python 3.10+
+- `pip install -r requirements.txt` for physical serial support
+- Arduino IDE with ESP32 board package, or PlatformIO, to upload firmware
+
+## Run without an ESP32
+
+```bash
+python3 -m simulator.main --manual
+```
+
+Enter `ON` for TEST, `OFF` for NORMAL, `STATUS` to show state, or `QUIT` to exit. All values are explicitly synthetic.
+
+## Connect an ESP32
+
+1. Upload `firmware/esp32_controller/esp32_controller.ino`.
+2. Connect its normal USB port, identify it (for example `/dev/ttyUSB0` or `COM3`), and run:
+   ```bash
+   python3 -m simulator.main --port /dev/ttyUSB0
+   ```
+3. In a serial terminal at 115200 baud send `ON`, `OFF`, or `STATUS` followed by newline.
+
+## Build/upload
+
+Open the `.ino` sketch in Arduino IDE, select a standard ESP32 board and USB port, then Upload. It uses only `Serial`; it includes no RF library or radio configuration.
+
+## Serial protocol
+
+UTF-8 text, 115200 baud, 8N1, newline-delimited:
+
+| Host command | ESP32 response | Meaning |
 | --- | --- | --- |
-| TEST | GPIO25 to GND | Toggle TEST ON/OFF |
-| STATUS | GPIO26 to GND | Request a simulated measurement |
+| `ON` | `OK:TEST_MODE_ENABLED`, `MODE:TEST` | enable simulated TEST condition |
+| `OFF` | `OK:TEST_MODE_DISABLED`, `MODE:NORMAL` | return to simulated NORMAL |
+| `STATUS` | `MODE:NORMAL` or `MODE:TEST` | query stored state |
 
-Internal pull-ups are enabled; do not connect these inputs to 5 V. Other ESP32
-variants may lack these pins or use native USB: adjust pin constants and board
-USB settings for your hardware. This repository has not been hardware-validated.
+Boot emits `ESP32_SIM_CONTROLLER:READY` then the current mode. Unknown commands return `ERR:UNKNOWN_COMMAND`.
 
-Close Arduino Serial Monitor before running the PC program (one port owner):
+## Example output
 
-```sh
-python -m serial.tools.list_ports
-python simulator/rf_channel_sim.py --port /dev/ttyUSB0
-# Windows example:
-python simulator/rf_channel_sim.py --port COM3
+```text
+SIMULATED mode=NORMAL RSSI=-58.7 dBm noise=-95.6 dBm packet_success=98.2%
+Simulator mode set to TEST
+SIMULATED mode=TEST RSSI=-75.1 dBm noise=-72.4 dBm packet_success=62.8%
 ```
 
-Both ends use 115200 baud. The PC requests state/status once per second; a button
-press also reports immediately. Opening the port can reset the board; boot and
-state synchronization are allowed five seconds. Reset starts with TEST OFF.
-On Linux, serial access may require membership in the device's owning group
-(commonly `dialout`) and a new login. Use a USB data cable.
+## Limitations and roadmap
 
-A missing serial dependency, failed connection, disconnect or five-second state
-timeout switches to manual mode and resets TEST OFF. Ctrl+C exits; restart with
-`--port` to reconnect. No automatic reconnection is attempted.
-
-## Checks
-
-```sh
-python -m unittest discover -s tests -v
-python -m compileall -q simulator tests
-```
-
-See [architecture and serial protocol](docs/architecture.md).
+These are bounded random values, not live readings. State resets on reboot; no GUI or logging exists. Safe future work can add configuration profiles, CSV logging, repeatable scenarios, visualisation, and serial reconnection. It must remain simulation-first and avoid RF disruption.
