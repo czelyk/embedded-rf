@@ -9,6 +9,8 @@ class RFChannelSimulator:
     def __init__(self, rng=None):
         self.test_mode = False
         self.rng = rng or random.Random()
+        self.packets_sent = 0
+        self.packets_received = 0
 
     def set_test_mode(self, enabled):
         self.test_mode = bool(enabled)
@@ -16,9 +18,17 @@ class RFChannelSimulator:
     def measure(self):
         ranges = ((-85, -70), (-65, -55), (40, 75)) if self.test_mode else (
             (-60, -45), (-95, -85), (95, 100))
-        return dict(zip(
+        data = dict(zip(
             ('rssi_dbm', 'noise_dbm', 'packet_success_percent'),
             (round(self.rng.uniform(*bounds), 2) for bounds in ranges)))
+        self.packets_sent += 1
+        received = self.rng.random() * 100 < data['packet_success_percent']
+        self.packets_received += int(received)
+        data['virtual_packet'] = 'received' if received else 'lost'
+        data['packets_sent'] = self.packets_sent
+        data['packets_received'] = self.packets_received
+        data['packets_lost'] = self.packets_sent - self.packets_received
+        return data
 
 
 def handle_command(channel, command):
@@ -34,12 +44,19 @@ def handle_command(channel, command):
         mode = 'TEST' if channel.test_mode else 'NORMAL'
         return (f"[{mode}] RSSI: {data['rssi_dbm']} dBm | "
                 f"Noise: {data['noise_dbm']} dBm | "
-                f"Packet Success: {data['packet_success_percent']}% (simulated)")
+                f"Packet Success: {data['packet_success_percent']}% | "
+                f"Virtual Packet: {data['virtual_packet']} | "
+                f"Delivered: {data['packets_received']}/{data['packets_sent']} "
+                f"(lost: {data['packets_lost']}; simulated)")
+    if command == 'RESET':
+        channel.packets_sent = 0
+        channel.packets_received = 0
+        return 'Virtual receiver counters reset'
     return None
 
 
 def manual_loop(channel):
-    print('Manual commands: on | off | status | quit')
+    print('Manual commands: on | off | status | reset | quit')
     while True:
         try:
             command = input('rf> ')

@@ -7,7 +7,10 @@ TEST / STATUS buttons -> ESP32 -> USB UART (115200, 8N1)
                            Python command parser
                                       |
                                       v
-                         Synthetic channel measurements
+                          Synthetic channel measurements
+                                      |
+                                      v
+                       Virtual receiver packet counters
 ```
 
 The ESP32 owns TEST state while connected. It uses debounced active-low buttons
@@ -45,3 +48,8 @@ TEST samples RSSI -85..-70 dBm, noise -65..-55 dBm and packet success 40..75%.
 These independent uniform distributions illustrate changed conditions; packet
 success is not calculated from SNR and this is not a calibrated propagation or
 physical-layer model. There are no actual packets, receivers or RF emissions.
+
+Each status is also one virtual packet attempt. A seeded pseudo-random draw
+uses that sample's packet-success percentage to mark it received or lost; the
+running counters are purely illustrative. `RESET` is available only in manual
+mode and clears those counters.
