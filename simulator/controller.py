@@ -27,6 +27,18 @@ class SerialController:
         if self._serial is not None:
             self._serial.close()
             self._serial = None
+    def send_command(self, command: str) -> None:
+        """Send one supported newline-delimited command to the ESP32."""
+        if self._serial is None:
+            raise RuntimeError("Serial port is not connected")
+        normalized = command.strip().upper()
+        if normalized not in {"ON", "OFF", "STATUS"}:
+            raise ValueError("Command must be ON, OFF, or STATUS")
+        try:
+            self._serial.write((normalized + "\n").encode("ascii"))
+            self._serial.flush()
+        except Exception as error:
+            raise RuntimeError(f"Serial write failed: {error}") from error
     def poll(self, on_line: Callable[[str], None]) -> None:
         if self._serial is None:
             raise RuntimeError("Serial port is not connected")

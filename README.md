@@ -24,28 +24,48 @@ See [the architecture document](docs/architecture.md) for the data flow.
 
 - Python 3.10+
 - `pip install -r requirements.txt` for physical serial support
-- Arduino IDE with ESP32 board package, or PlatformIO, to upload firmware
+- PlatformIO (tested with the `esp32-c3-devkitc-02` board definition)
+
+Create an isolated environment; no system Python packages need to be changed:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+```
 
 ## Run without an ESP32
 
 ```bash
-python3 -m simulator.main --manual
+.venv/bin/python -m simulator.main --manual
 ```
 
 Enter `ON` for TEST, `OFF` for NORMAL, `STATUS` to show state, or `QUIT` to exit. All values are explicitly synthetic.
 
 ## Connect an ESP32
 
-1. Upload `firmware/esp32_controller/esp32_controller.ino`.
-2. Connect its normal USB port, identify it (for example `/dev/ttyUSB0` or `COM3`), and run:
+1. Connect an ESP32-C3-DevKitC-02 v1.1 with its USB data cable.
+2. Build and upload with PlatformIO:
    ```bash
-   python3 -m simulator.main --port /dev/ttyUSB0
+   cd firmware/esp32_controller
+   pio run
+   pio run -t upload
    ```
-3. In a serial terminal at 115200 baud send `ON`, `OFF`, or `STATUS` followed by newline.
+3. Return to the repository root and run (Linux example):
+   ```bash
+   .venv/bin/python -m simulator.main --port /dev/ttyUSB0
+   ```
+
+The application can also send commands itself. This finite command sequence is useful for a repeatable integration test:
+
+```bash
+.venv/bin/python -m simulator.main --port /dev/ttyUSB0 --command STATUS --command ON --command STATUS --command OFF --count 8 --interval 0.1
+```
 
 ## Build/upload
 
-Open the `.ino` sketch in Arduino IDE, select a standard ESP32 board and USB port, then Upload. It uses only `Serial`; it includes no RF library or radio configuration.
+`firmware/esp32_controller/platformio.ini` specifies `board = esp32-c3-devkitc-02`, 115200 baud, and `/dev/ttyUSB0` for upload/monitor. The active PlatformIO source is `src/main.cpp`; it uses only `Serial` and includes no RF library or radio configuration.
+
+For a manual serial check, first ensure no terminal/monitor holds `/dev/ttyUSB0`, then run `pio device monitor --baud 115200` from the firmware directory. On reset it prints `ESP32_SIM_CONTROLLER:READY` and `MODE:NORMAL`; send each command followed by Enter. Exit the monitor before starting Python.
 
 ## Serial protocol
 
