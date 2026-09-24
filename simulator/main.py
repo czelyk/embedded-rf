@@ -13,18 +13,27 @@ def main() -> int:
     parser.add_argument("--port", help="ESP32 USB serial port, e.g. /dev/ttyUSB0 or COM3")
     parser.add_argument("--interval", type=float, default=1.0, help="measurement interval in seconds")
     parser.add_argument("--manual", action="store_true", help="read ON, OFF, STATUS, or QUIT from the keyboard")
+    parser.add_argument("--command", action="append", default=[], help="send ON, OFF, or STATUS after connecting (repeatable)")
+    parser.add_argument("--count", type=int, help="stop after this many hardware measurement cycles")
     args = parser.parse_args()
     if args.interval <= 0: parser.error("--interval must be positive")
+    if args.count is not None and args.count <= 0: parser.error("--count must be positive")
     if not args.port and not args.manual: parser.error("choose --manual or provide --port")
     simulator, controller = RFChannelSimulator(), None
     if args.port:
         controller = SerialController(args.port)
         try:
             controller.connect(); print(f"Connected to {args.port}; awaiting ESP32 mode messages.")
+            for command in args.command:
+                controller.send_command(command)
+                print(f"Sent ESP32 command: {command.strip().upper()}")
         except RuntimeError as error:
             print(f"Serial error: {error}"); return 2
+        except ValueError as error:
+            print(f"Command error: {error}"); controller.close(); return 2
     print("All displayed values are simulated; no RF signal is measured or transmitted.")
     try:
+        cycles = 0
         while True:
             if args.manual:
                 command = input("Command [ON/OFF/STATUS/QUIT]: ").strip()
@@ -37,7 +46,12 @@ def main() -> int:
                 print_measurement(simulator)
             else:
                 controller.poll(lambda line: print(apply_serial_line(line, simulator) or f"ESP32: {line}"))
-                print_measurement(simulator); time.sleep(args.interval)
+                print_measurement(simulator); cycles += 1
+                if args.count is not None and cycles >= args.count: break
+                time.sleep(args.interval)
+    except RuntimeError as error:
+        print(f"Serial error: {error}")
+        return 2
     except (KeyboardInterrupt, EOFError): print("\nStopped.")
     finally:
         if controller: controller.close()
