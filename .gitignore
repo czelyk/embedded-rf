@@ -16,5 +16,6 @@ build/
 Thumbs.db
 .env
 .env.*
+firmware/esp32_controller/include/wifi_config.h
 *.pem
 *.key
