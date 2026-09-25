@@ -19,3 +19,4 @@ Thumbs.db
 firmware/esp32_controller/include/wifi_config.h
 *.pem
 *.key
+firmware/esp32_controller/include/wifi_config.h
