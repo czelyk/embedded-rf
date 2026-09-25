@@ -16,5 +16,6 @@ ESP32-C3-DevKitC-02 v1.1 -- USB Serial or Wi-Fi TCP --> Python controller --> si
 3. Wi-Fi reconnection is attempted periodically without blocking Serial. The TCP server accepts one bounded-line client at a time.
 4. The ESP32 optionally sends UDP **device telemetry** (device, mode, uptime, sequence) to a configured host/port; it never claims simulated values as measured RF data.
 5. The Python controller reads `MODE:NORMAL` or `MODE:TEST` through either transport and updates `RFChannelSimulator`, which produces separately labeled `SIMULATED` values.
+6. An optional Python session layer records device-state updates and simulated samples separately, maintains statistics, writes flushed CSV rows, and renders an optional terminal dashboard. It owns at most one nonblocking UDP listener; no ESP32 firmware changes are required.
 
 The controller sends only these three validated protocol commands and parses the board's newline-delimited responses. Manual CLI operation uses the identical state-transition path without hardware. Both sockets and serial ports close on exit. PlatformIO builds `firmware/esp32_controller/src/main.cpp` for `esp32-c3-devkitc-02`; its configured Linux upload/monitor port is `/dev/ttyUSB0`. See [protocol.md](protocol.md) for frame formats.

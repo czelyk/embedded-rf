@@ -12,14 +12,14 @@ def parse_telemetry(packet: bytes) -> dict[str, object] | None:
     except (UnicodeDecodeError, KeyError, ValueError): return None
 
 class TelemetryReceiver:
-    def __init__(self, bind_address: str = "0.0.0.0", port: int = 8766):
+    def __init__(self, bind_address: str = "0.0.0.0", port: int = 8766, timeout: float | None = 0.5):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.socket.bind((bind_address, port)); self.socket.settimeout(0.5)
+        self.socket.bind((bind_address, port)); self.socket.settimeout(timeout)
         self.last_sequence = None
     def receive(self):
         try: packet, address = self.socket.recvfrom(256)
-        except socket.timeout: return None
+        except (BlockingIOError, socket.timeout): return None
         item = parse_telemetry(packet)
         if item is None: return None
         sequence = item["sequence"]
