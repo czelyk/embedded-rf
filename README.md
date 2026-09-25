@@ -2,6 +2,21 @@
 
 `embedded-rf` is a safe, simulation-only ESP32-controlled RF-channel training platform. It models RSSI, noise, and packet success in Python; it does **not** measure, transmit, jam, interfere with, or otherwise operate on real RF signals.
 
+## Quick Start
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+cd firmware/esp32_controller && pio run
+cp include/wifi_config.example.h include/wifi_config.h
+# Fill only local ignored wifi_config.h; never commit it.
+pio run -t upload
+cd ../..
+.venv/bin/python -m simulator.main --host ESP32_IP --dashboard --csv logs/session.csv
+```
+
+Stop cleanly with Ctrl+C, then run `.venv/bin/python -m simulator.analysis logs/session.csv --plot --output-dir analysis/session --report analysis/session/report.md`. Run `.venv/bin/python -m unittest discover -s tests -v` for regression. `ESP32_IP` is the safe status value printed by the board; do not put credentials in tracked files.
+
 ## Architecture
 
 ```text
@@ -207,3 +222,7 @@ terminal dashboard and CSV records are session tools, not RF instrumentation.
 Safe future work can add configuration profiles, repeatable scenarios,
 visualisation, authenticated network control, and serial reconnection. It must
 remain simulation-first and avoid RF disruption.
+
+## Demo and release
+
+Follow the complete reproducible workflow in [docs/demo.md](docs/demo.md). See [v1.0.0 release notes](docs/release-v1.0.0.md) and [CHANGELOG.md](CHANGELOG.md). The supported CLI help is available through `.venv/bin/python -m simulator.main --help` and `.venv/bin/python -m simulator.analysis --help`.
