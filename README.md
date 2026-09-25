@@ -40,6 +40,16 @@ python3 -m venv .venv
 
 Enter `ON` for TEST, `OFF` for NORMAL, `STATUS` to show state, or `QUIT` to exit. All values are explicitly synthetic.
 
+For a live terminal display and a CSV session record:
+
+```bash
+.venv/bin/python -m simulator.main --manual --dashboard --csv logs/manual.csv
+```
+
+The dashboard is optional and uses only normal terminal escape sequences. Its RF
+section is always headed **SIMULATED RF**: those values are Python-generated,
+not measurements reported by an ESP32.
+
 ## Connect an ESP32
 
 1. Connect an ESP32-C3-DevKitC-02 v1.1 with its USB data cable.
@@ -96,6 +106,33 @@ on the configured Linux host/port (default `8766`):
 `DEVICE TELEMETRY` contains only device, mode, uptime, and sequence. It is never
 an RF measurement; RSSI/noise/packet-success remain Python-generated `SIMULATED` data.
 
+## Dashboard, CSV sessions, and statistics
+
+When connecting over TCP, the main application can receive the ESP32's UDP
+device-state telemetry itself. Do not run the standalone UDP receiver on the
+same port at the same time. This command gives a live view and records both
+device-state updates and simulated samples:
+
+```bash
+.venv/bin/python -m simulator.main --host ESP32_IP --tcp-port 8765 \
+  --dashboard --csv logs/session.csv --command STATUS --command ON \
+  --command STATUS --command OFF --count 30 --interval 1
+```
+
+`--udp-bind` and `--udp-port` select the local telemetry listener (default
+`0.0.0.0:8766`); use `--no-udp` when no device telemetry is wanted. The
+application owns one nonblocking listener, so the dashboard, CSV writer, and
+statistics share the same received packets.
+
+CSV files have a header and include timestamp, event type, device state
+(`device`, `mode`, `uptime_ms`, `sequence`), and separately named
+`simulated_*` RF fields. A row is flushed for each device telemetry update,
+TCP/Serial mode update, and simulated sample. Parent directories are created as needed. The default
+`logs/` location is Git-ignored; generated logs must not be committed.
+
+On clean exit or Ctrl+C, a summary reports duration, NORMAL/TEST sample counts,
+UDP packet and sequence-gap counts, and min/average/max **SIMULATED RF** values.
+
 ## Tests and troubleshooting
 
 ```bash
@@ -131,4 +168,8 @@ SIMULATED mode=TEST RSSI=-75.1 dBm noise=-72.4 dBm packet_success=62.8%
 
 ## Limitations and roadmap
 
-These are bounded random values, not live readings. State resets on reboot; no GUI or logging exists. Safe future work can add configuration profiles, CSV logging, repeatable scenarios, visualisation, authenticated network control, and serial reconnection. It must remain simulation-first and avoid RF disruption.
+These are bounded random values, not live readings. State resets on reboot. The
+terminal dashboard and CSV records are session tools, not RF instrumentation.
+Safe future work can add configuration profiles, repeatable scenarios,
+visualisation, authenticated network control, and serial reconnection. It must
+remain simulation-first and avoid RF disruption.
