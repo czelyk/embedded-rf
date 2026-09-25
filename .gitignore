@@ -18,6 +18,7 @@ Thumbs.db
 .env.*
 firmware/esp32_controller/include/wifi_config.h
 logs/
+analysis/
 *.pem
 *.key
 firmware/esp32_controller/include/wifi_config.h

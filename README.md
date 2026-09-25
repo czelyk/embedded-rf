@@ -133,6 +133,40 @@ TCP/Serial mode update, and simulated sample. Parent directories are created as 
 On clean exit or Ctrl+C, a summary reports duration, NORMAL/TEST sample counts,
 UDP packet and sequence-gap counts, and min/average/max **SIMULATED RF** values.
 
+## Offline session analysis
+
+Analyze a Milestone 3 CSV after recording; this is Python-side offline analysis
+of software-generated values, not ESP32 RF measurement:
+
+```bash
+.venv/bin/python -m simulator.analysis logs/session.csv
+```
+
+The textual report separates OVERALL, NORMAL, and TEST samples, reports
+telemetry sequence gaps/duplicates/resets, and compares NORMAL vs TEST averages
+descriptively. Missing or malformed fields are reported as unavailable rather
+than invented.
+
+Create headless PNG time-series plots and a Markdown report (both output paths
+are Git-ignored by default):
+
+```bash
+.venv/bin/python -m simulator.analysis logs/session.csv --plot \
+  --output-dir analysis/session1 --report analysis/session1/report.md
+```
+
+Plots are titled and labelled **SIMULATED** and include RSSI (dBm), noise (dBm),
+packet success (%), and a device-mode timeline. Compare recorded sessions with:
+
+```bash
+.venv/bin/python -m simulator.analysis logs/session1.csv --compare logs/session2.csv
+```
+
+Plotting uses `matplotlib`, included in `requirements.txt`; install it through
+the existing `.venv/bin/python -m pip install -r requirements.txt` workflow.
+All analysis reports explicitly state that RF metrics are software-simulated and
+not physical RF measurements from the ESP32.
+
 ## Tests and troubleshooting
 
 ```bash
