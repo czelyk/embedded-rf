@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 import time
+from collections import deque
+from threading import RLock
 
 from .channel import Measurement
 
@@ -127,12 +129,15 @@ class SessionStatistics:
 
 class Session:
     """Combines device state and explicitly simulated RF samples into records."""
-    def __init__(self, statistics: SessionStatistics | None = None):
+    def __init__(self, statistics: SessionStatistics | None = None, source: str = "LIVE", history_size: int = 120):
         self.statistics = statistics or SessionStatistics()
+        self.lock = RLock()
+        self.source = source.upper()
         self.device, self.mode = "manual", "NORMAL"
         self.uptime_ms: int | None = None
         self.sequence: int | None = None
         self.last_measurement: Measurement | None = None
+        self.history: deque[dict[str, object]] = deque(maxlen=history_size)
 
     @staticmethod
     def _timestamp() -> str:
@@ -148,22 +153,31 @@ class Session:
         )
 
     def record_telemetry(self, packet: dict[str, object]) -> SessionRecord:
-        self.device, self.mode = str(packet["device"]), str(packet["mode"])
-        self.uptime_ms, self.sequence = int(packet["uptime_ms"]), int(packet["sequence"])
-        self.statistics.record_telemetry(packet)
-        return self._record("telemetry")
+        with self.lock:
+            self.device, self.mode = str(packet["device"]), str(packet["mode"])
+            self.uptime_ms, self.sequence = int(packet["uptime_ms"]), int(packet["sequence"])
+            self.statistics.record_telemetry(packet)
+            return self._record("telemetry")
 
     def record_sample(self, measurement: Measurement) -> SessionRecord:
-        self.mode = measurement.mode.value
-        self.last_measurement = measurement
-        self.statistics.record_sample(measurement)
-        return self._record("sample")
+        with self.lock:
+            self.mode = measurement.mode.value
+            self.last_measurement = measurement
+            self.statistics.record_sample(measurement)
+            self.history.append({
+                "sample": self.statistics.samples,
+                "rssi": measurement.rssi_dbm,
+                "noise": measurement.noise_dbm,
+                "success": measurement.packet_success_percent,
+            })
+            return self._record("sample")
 
     def record_mode_update(self, mode: str) -> SessionRecord:
         """Record a Serial/TCP mode response without mislabeling it as RF data."""
-        self.mode = mode.upper()
-        self.statistics.set_mode(self.mode)
-        return self._record("control")
+        with self.lock:
+            self.mode = mode.upper()
+            self.statistics.set_mode(self.mode)
+            return self._record("control")
 
 
 def format_duration(seconds: float) -> str:

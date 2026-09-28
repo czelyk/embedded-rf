@@ -11,7 +11,7 @@ def render_dashboard(session: Session, tcp_status: str, udp_status: str) -> str:
     def value(number: float | None, suffix: str) -> str:
         return "--" if number is None else f"{number:.1f}{suffix}"
     return "\n".join((
-        "embedded-rf | LIVE", "--------------------------------",
+        f"embedded-rf | SOURCE: {session.source}", "--------------------------------",
         f"Device       {session.device.upper()}", f"Mode         {session.mode}",
         f"Uptime       {format_duration((session.uptime_ms or 0) / 1000)}",
         f"Sequence     {session.sequence if session.sequence is not None else '--'}",
