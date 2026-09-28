@@ -1,0 +1,8 @@
+timestamp,event,device,mode,uptime_ms,sequence,simulated_rssi_dbm,simulated_noise_dbm,simulated_packet_success_percent
+2026-01-01T12:00:00+00:00,telemetry,esp32-c3,NORMAL,1000,1,,,
+2026-01-01T12:00:01+00:00,sample,esp32-c3,NORMAL,1000,1,-55.5,-92.0,98.5
+2026-01-01T12:00:02+00:00,control,esp32-c3,TEST,1000,1,,,
+2026-01-01T12:00:03+00:00,sample,esp32-c3,TEST,1000,1,-77.25,-62.5,51.75
+2026-01-01T12:00:04+00:00,control,esp32-c3,NORMAL,1000,1,,,
+2026-01-01T12:00:05+00:00,telemetry,esp32-c3,NORMAL,6000,3,,,
+2026-01-01T12:00:06+00:00,sample,esp32-c3,NORMAL,6000,3,-54.0,-93.5,99.0

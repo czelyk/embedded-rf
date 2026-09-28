@@ -8,6 +8,7 @@ from .dashboard import TerminalDashboard
 from .session import CsvSessionWriter, Session, SessionLogError, format_summary
 from .telemetry import TelemetryReceiver
 from .transports import TcpController
+from .web import DEFAULT_WEB_BIND, DEFAULT_WEB_PORT, WebDashboard, create_app
 
 
 def main() -> int:
@@ -20,6 +21,9 @@ def main() -> int:
     parser.add_argument("--no-udp", action="store_true", help="do not receive device-state UDP telemetry")
     parser.add_argument("--csv", help="write structured session records to this CSV path")
     parser.add_argument("--dashboard", action="store_true", help="show a refreshing terminal dashboard")
+    parser.add_argument("--web-dashboard", action="store_true", help="serve the optional live browser dashboard")
+    parser.add_argument("--web-bind", default=DEFAULT_WEB_BIND, help=f"web bind address (default: {DEFAULT_WEB_BIND})")
+    parser.add_argument("--web-port", type=int, default=DEFAULT_WEB_PORT, help=f"web port (default: {DEFAULT_WEB_PORT})")
     parser.add_argument("--interval", type=float, default=1.0, help="measurement interval in seconds")
     parser.add_argument("--manual", action="store_true", help="read ON, OFF, STATUS, or QUIT from the keyboard")
     parser.add_argument("--command", action="append", default=[], help="send ON, OFF, or STATUS after connecting (repeatable)")
@@ -28,7 +32,7 @@ def main() -> int:
     if args.interval <= 0: parser.error("--interval must be positive")
     if args.count is not None and args.count <= 0: parser.error("--count must be positive")
     if args.port and args.host: parser.error("choose either --port or --host")
-    if not 1 <= args.tcp_port <= 65535 or not 1 <= args.udp_port <= 65535: parser.error("port must be 1..65535")
+    if not 1 <= args.tcp_port <= 65535 or not 1 <= args.udp_port <= 65535 or not 1 <= args.web_port <= 65535: parser.error("port must be 1..65535")
     if not args.port and not args.host and not args.manual: parser.error("choose --manual, --port, or --host")
     try:
         writer = CsvSessionWriter(args.csv) if args.csv else None
@@ -36,7 +40,7 @@ def main() -> int:
         print(f"CSV error: {error}")
         return 2
     simulator, session = RFChannelSimulator(), Session()
-    controller = receiver = None
+    controller = receiver = web_dashboard = None
     dashboard = TerminalDashboard() if args.dashboard else None
     tcp_status, udp_status = "NOT CONNECTED", "DISABLED"
 
@@ -65,6 +69,11 @@ def main() -> int:
             if not dashboard:
                 print(f"DEVICE TELEMETRY device={packet['device']} mode={packet['mode']} uptime_ms={packet['uptime_ms']} sequence={packet['sequence']} gap={packet['sequence_gap']}")
 
+    def send_web_command(command: str) -> None:
+        if controller is None:
+            raise RuntimeError("Device control is unavailable without a connected ESP32")
+        controller.send_command(command)
+
     try:
         if args.port or args.host:
             controller = SerialController(args.port) if args.port else TcpController(args.host, args.tcp_port)
@@ -81,6 +90,11 @@ def main() -> int:
                 except OSError as error:
                     udp_status = "UNAVAILABLE"
                     print(f"UDP telemetry unavailable: {error}")
+        if args.web_dashboard:
+            app = create_app(session, lambda: (tcp_status, udp_status), send_web_command if controller else None)
+            web_dashboard = WebDashboard(app, args.web_bind, args.web_port)
+            web_dashboard.start()
+            print(f"Web dashboard: {web_dashboard.url} (bound to {args.web_bind})")
         if not dashboard: print("All displayed RF values are SIMULATED; no RF signal is measured or transmitted.")
         cycles = 0
         while True:
@@ -109,6 +123,7 @@ def main() -> int:
         if receiver: receiver.close()
         if controller: controller.close()
         if dashboard: dashboard.close()
+        if web_dashboard: web_dashboard.close()
         if writer: writer.close()
         print(format_summary(session, args.csv if writer else None))
     return 0
