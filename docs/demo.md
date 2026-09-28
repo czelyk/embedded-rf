@@ -26,3 +26,19 @@ Observe real mode/uptime/sequence updates and separate **SIMULATED RF** values. 
 ```
 
 The CSV, plots, and report show real device state alongside software-simulated metrics only.
+
+## Browser and hardware-free replay
+
+Add `--web-dashboard` to the live command and open the printed localhost URL.
+The device section is real control/telemetry; every RF card and chart says
+**SIMULATED**. Browser buttons are limited to `STATUS`, `ON`, and `OFF`.
+
+The repository includes a small synthetic, non-private demonstration recording:
+
+```bash
+.venv/bin/python -m simulator.replay tests/fixtures/replay_session.csv --speed 0.5 --dashboard --web-dashboard
+```
+
+This path uses no ESP32 or network endpoint. It progresses NORMAL → TEST →
+NORMAL using the exact values in the CSV, then closes both dashboards and prints
+the final replay summary.
