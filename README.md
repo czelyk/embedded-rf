@@ -17,6 +17,38 @@ cd ../..
 
 Stop cleanly with Ctrl+C, then run `.venv/bin/python -m simulator.analysis logs/session.csv --plot --output-dir analysis/session --report analysis/session/report.md`. Run `.venv/bin/python -m unittest discover -s tests -v` for regression. `ESP32_IP` is the safe status value printed by the board; do not put credentials in tracked files.
 
+## v1.1 development: web dashboard and replay
+
+The optional browser dashboard uses the same `Session` state and statistics as
+the terminal dashboard. It binds to `127.0.0.1:8080` by default and polls a
+credential-free `/api/state` JSON endpoint every 750 ms:
+
+```bash
+.venv/bin/python -m simulator.main --host ESP32_IP --web-dashboard
+.venv/bin/python -m simulator.main --host ESP32_IP --dashboard --web-dashboard --web-port 8081
+```
+
+Use `--web-bind` only when you intentionally want another local interface. The
+page prints its actual URL at startup. It separates **REAL DEVICE/CONTROL
+TELEMETRY** from **SOFTWARE-SIMULATED RF METRICS**, provides bounded recent
+history charts, and offers only `STATUS`, `ON`, and `OFF` controls through the
+existing Serial/TCP controller. Arbitrary commands are rejected.
+
+Replay a Milestone 3 CSV with no ESP32, network, serial port, or Wi-Fi:
+
+```bash
+.venv/bin/python -m simulator.replay tests/fixtures/replay_session.csv --dashboard --no-delay
+.venv/bin/python -m simulator.replay logs/session.csv --speed 2.0 --web-dashboard
+.venv/bin/python -m simulator.replay logs/session.csv --speed 0.5 --dashboard --web-dashboard
+```
+
+`--speed 1.0` follows recorded timing, `2.0` is twice as fast, and `0.5` is half
+speed. `--no-delay` runs immediately. Missing, malformed, or reverse timestamps
+never cause negative sleeps. Replay uses the recorded simulated RF values
+exactly and is clearly marked `REPLAY MODE`; it does not generate replacements.
+When the final row is applied, the summary is printed and terminal/web resources
+shut down. Use a suitable slower speed while observing browser playback.
+
 ## Architecture
 
 ```text
@@ -182,6 +214,10 @@ the existing `.venv/bin/python -m pip install -r requirements.txt` workflow.
 All analysis reports explicitly state that RF metrics are software-simulated and
 not physical RF measurements from the ESP32.
 
+The browser dashboard uses Flask, also installed from `requirements.txt`. Its
+charts use the browser canvas API and require no CDN, Node, npm, or internet
+connection.
+
 ## Tests and troubleshooting
 
 ```bash
@@ -189,6 +225,11 @@ not physical RF measurements from the ESP32.
 .venv/bin/python -m compileall -q simulator tests
 cd firmware/esp32_controller && pio run
 ```
+
+GitHub Actions runs these Python checks on pushes to `main` and pull requests
+targeting `main`, then builds `firmware/esp32_controller` with PlatformIO in a
+separate job. CI uses the checked-in empty configuration fallback and requires
+no `wifi_config.h`, credentials, device, serial port, or network endpoint.
 
 Use a USB data cable, verify the board's printed IP is reachable on the same
 network, and close any serial monitor before using the Python USB client. Wi-Fi
@@ -220,7 +261,7 @@ SIMULATED mode=TEST RSSI=-75.1 dBm noise=-72.4 dBm packet_success=62.8%
 These are bounded random values, not live readings. State resets on reboot. The
 terminal dashboard and CSV records are session tools, not RF instrumentation.
 Safe future work can add configuration profiles, repeatable scenarios,
-visualisation, authenticated network control, and serial reconnection. It must
+additional visualisation, and serial reconnection. It must
 remain simulation-first and avoid RF disruption.
 
 ## Demo and release
