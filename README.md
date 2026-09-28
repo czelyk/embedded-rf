@@ -72,6 +72,9 @@ See [the architecture document](docs/architecture.md) for the data flow.
 - `pip install -r requirements.txt` for physical serial support
 - PlatformIO (tested with the `esp32-c3-devkitc-02` board definition)
 
+Windows users can follow the [Windows setup and software validation guide](docs/windows-validation.md)
+for PowerShell commands, hardware-free replay, and safe serial-device discovery.
+
 Create an isolated environment; no system Python packages need to be changed:
 
 ```bash
