@@ -6,6 +6,7 @@
 - Add deterministic, hardware-free replay of recorded sessions in terminal and browser dashboards.
 - Add GitHub Actions checks for Python tests, bytecode compilation, and the ESP32 PlatformIO build.
 - Keep real device/control telemetry visually separate from software-simulated RF metrics.
+- Document Windows PowerShell setup, software validation, replay, and safe serial-device discovery.
 
 ## v1.0.0
 
